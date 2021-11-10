@@ -1,0 +1,12 @@
+name: EnchantSplitter
+main: me.simplicitee.enchantsplit.EnchantSplit
+api-version: 1.16
+version: 2.0.0
+author: Simplicitee
+description: A simple plugin for splitting enchanted books into multiple books with a single enchant each.
+commands:
+  enchantsplit:
+    description: Splits the enchantments on an enchanted book into multiple enchanted books
+    alisases: split
+    usage: "Usage: /enchantsplit"
+    default: op

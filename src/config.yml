@@ -1,0 +1,8 @@
+ErrorMessage:
+  NoPermission: "&cYou do not have permission to use /enchantsplit!"
+  PlayerOnly: "&cOnly players can use /enchantsplit!"
+  NotEnoughEnchants: "&cThe enchanted book does not have enough enchants to split!"
+  NotEnchantedBook: "&cOnly an enchanted book can be split!"
+  NotEnoughBooks: "&cYou do not have enough books in your inventory to split the enchanted book!"
+  NotEnoughXP: "&cYou do not have enough xp to split the enchanted book!"
+ExperienceCost: 5
