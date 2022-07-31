@@ -27,11 +27,21 @@ import net.md_5.bungee.api.chat.TextComponent;
 
 public class EnchantSplit extends JavaPlugin implements Listener {
 
+
 	private static final ItemStack BOOK = new ItemStack(Material.BOOK);
 	private static final String EXPERIENCE_COST = "ExperienceCost";
+	private static final String EXTRA_COST = "ExtraCost"; 			//Jeppa: added additional costs (if needed), can also be used as fixed costs if ExperienceCost is set to 0 ...
+	private static final String NEEDS_SNEAKING = "NeedsSneaking";	//Jeppa: only use 'natural' mode if player is crouching/sneeking...
 	
-	private int expCost = 10;
-
+	private int expCost = 10; //default value, in default config it's 5
+	private int extraCost = 5; //default value
+	
+	private boolean needsSneak = true;
+	
+	private boolean drop = false;	//Jeppa: defines internaly if books should be dropped or given...
+	
+	private FileConfiguration config = getConfig();
+	
 	public enum PluginMsg {
 		NO_PERM("NoPermission", "&cYou don't have permission to use /enchantsplit!"),
 		PLAYER_ONLY("PlayerOnly", "&cOnly a player can run /enchantsplit!"),
@@ -39,14 +49,18 @@ public class EnchantSplit extends JavaPlugin implements Listener {
 		NOT_ENOUGH_ENCHANTS("NotEnoughEnchants", "&cThe enchanted book does not have enough enchants to split!"),
 		NOT_ENOUGH_BOOKS("NotEnoughBooks", "&cYou do not have enough books in your inventory to split the enchanted book!"),
 		NOT_ENOUGH_XP("NotEnoughXP", "&cYou do not have enough xp to split the enchanted book!"),
+		
+		NOT_ENOUGH_SLOTS("NotEnoughFreeSlots", "&cThere are not enough free slots in your inventory!"), //add by Jeppa
+		TOO_MUCH_BOOKS("TooMuchBooks", "&cPlease split only one book at a time!"), //add by Jeppa
+		
 		SUCCESS("Success", "&aEnchanted book was successfully split!");
 
-		private String path, msg;
+		private String path, msg="Config Error!"; //Jeppa: just msg with some default ;)
 		private TextComponent component;
 
 		private PluginMsg(String name, String msg) {
 			this.path = "Message." + name;
-			this.setText(msg);
+			setText(msg);
 		}
 
 		public void setText(String msg) {
@@ -57,17 +71,27 @@ public class EnchantSplit extends JavaPlugin implements Listener {
 	
 	@Override
 	public void onEnable() {
+		//Jeppa: copy default values and save them...
+		config.options().copyDefaults(true);
 		this.saveDefaultConfig();
-		FileConfiguration config = getConfig();
+		this.saveConfig();
 		
 		for (PluginMsg msg : PluginMsg.values()) {
 			if (config.contains(msg.path)) {
-				msg.setText(config.getString(msg.path));
+				msg.setText(config.getString(msg.path)); 
 			}
 		}
 		
 		if (config.contains(EXPERIENCE_COST)) {
 			this.expCost = config.getInt(EXPERIENCE_COST);
+		}
+		//Jeppa: additional cost...
+		if (config.contains(EXTRA_COST)) {
+			this.extraCost = config.getInt(EXTRA_COST);
+		}
+		//Jeppa: additional config value... sneeking/crouchuing at EnchantTable!
+		if (config.contains(NEEDS_SNEAKING)) {
+			this.needsSneak = config.getBoolean(NEEDS_SNEAKING);
 		}
 		
 		getServer().getPluginCommand("enchantsplit").setExecutor(this);
@@ -79,7 +103,7 @@ public class EnchantSplit extends JavaPlugin implements Listener {
 	
 	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-		if (!label.equals("enchantsplit")) {
+		if (!cmd.getName().equalsIgnoreCase("enchantsplit")) { //Jeppa: checking for 'label' won't check alias!
 			return false;
 		}
 
@@ -87,19 +111,39 @@ public class EnchantSplit extends JavaPlugin implements Listener {
 			message(sender, PluginMsg.PLAYER_ONLY, false);
 			return true;
 		} else if (!sender.hasPermission("split.enchants.command")) {
-			message(sender, PluginMsg.NOT_ENCHANTED, false);
+			message(sender, PluginMsg.NO_PERM, false); //Jeppa: fix text: NOT_ENCHANTED -> NO_PERM !
 			return true;
 		}
 
-		enchantSplit((Player) sender, false);
+		//Jeppa: additional help text output like in V1.1
+		if (args.length == 0) {
+			enchantSplit((Player) sender, false);
+		} else {
+			if (args[0].equalsIgnoreCase("help")) {
+				sender.sendMessage(ChatColor.AQUA+ "Use the /enchantsplit command while holding an " +ChatColor.YELLOW+ "Enchanted Book" +ChatColor.AQUA+ " to split the enchantments into multiple enchanted books. You must also have the same number of books as there are enchantments on the enchanted books.");
+			} else {
+				sender.sendMessage(ChatColor.RED+ "I think you should use /enchantsplit help !");
+			}
+		}
 		return true;
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onEnchantingTableInteract(PlayerInteractEvent event) {
-		if (event.getAction() != Action.RIGHT_CLICK_BLOCK || event.getClickedBlock().getType() != Material.ENCHANTING_TABLE) {
+		Material echantTable;
+		 //Jeppa: Fix for different names...
+		try {
+			echantTable = Material.valueOf("ENCHANTMENT_TABLE");
+		} catch (Exception e) {
+			echantTable = Material.ENCHANTING_TABLE;
+		}
+		if (event.getAction() != Action.RIGHT_CLICK_BLOCK || event.getClickedBlock().getType() != echantTable) {
 			return;
 		} else if (event.getPlayer().getInventory().getItemInMainHand().getType() != Material.ENCHANTED_BOOK) {
+			return;
+		}
+		//Jeppa: sneaking-check...
+		if (needsSneak==true && !event.getPlayer().isSneaking()) {
 			return;
 		}
 		
@@ -107,7 +151,7 @@ public class EnchantSplit extends JavaPlugin implements Listener {
 		enchantSplit(event.getPlayer(), true);
 	}
 
-	public void enchantSplit(Player player, boolean natural) {
+	public void enchantSplit(Player player, boolean natural) { //natural = table...
 		ItemStack book = player.getInventory().getItemInMainHand();
 		
 		if (book.getType() != Material.ENCHANTED_BOOK) {
@@ -120,7 +164,13 @@ public class EnchantSplit extends JavaPlugin implements Listener {
 		
 		Map<Enchantment, Integer> enchants = ((EnchantmentStorageMeta) book.getItemMeta()).getStoredEnchants();
 		
-		if (enchants.size() <= 1) {
+		//Jeppa Fix for stacked books...
+		if (book.getAmount() > 1) {
+			message(player, PluginMsg.TOO_MUCH_BOOKS, natural);
+            return;
+		}
+		
+		if (enchants.size() <= 1) { //<=1 ? :)
 			message(player, PluginMsg.NOT_ENOUGH_ENCHANTS, natural);
 			return;
 		} else if (!player.getInventory().containsAtLeast(BOOK, enchants.size())) {
@@ -129,22 +179,41 @@ public class EnchantSplit extends JavaPlugin implements Listener {
 		}
 		
 		if (player.getGameMode() != GameMode.CREATIVE) {
-			int exp = expCost <= 0 ? 0 : expCost * enchants.size();
-			int total = getTotalExp(player);
+			//Jeppa: some fixes for XP-handling.... etc.
+			double exp = expCost <= 0 ? 0 + extraCost : (expCost * enchants.size()) + extraCost; //Jeppa: + extraCost!
+			double total = getTotalExp(player); //Jeppa: fix inside!
 			
 			if (total < exp) {
 				message(player, PluginMsg.NOT_ENOUGH_XP, natural);
 				return;
 			}
 
-			setTotalExp(player, total - exp);
+			player.giveExp(-(int)exp); //Jeppa: no need for any complicated calculation... just add ;)
 		}
 
-		player.getInventory().setItemInMainHand(null);
+		book.setAmount(book.getAmount() - 1);	//Jeppa: another fix for removal of too much books...
 		player.getInventory().removeItem(removals(enchants.size()));
-		splitEnchants(enchants).forEach((i) -> player.getWorld().dropItemNaturally(player.getLocation(), i, (item) -> item.setPickupDelay(0)));
-		message(player, PluginMsg.SUCCESS, natural);
-	} 
+		
+//		splitEnchants(enchants).forEach((i) -> player.getWorld().dropItemNaturally(player.getLocation(), i, (item) -> item.setPickupDelay(0)));
+		//Jeppa: fix/add ... give the books and only drop if no space left...
+		splitEnchants(enchants).forEach((i) -> {
+			while (freeSlots(player)>0) {
+				player.getInventory().addItem(i);
+				drop=false;
+				return;
+			}
+			//drop the rest
+			drop=true;
+			player.getWorld().dropItemNaturally(player.getLocation(), i).setPickupDelay(0);
+		}); 
+
+		if (drop) getServer().getScheduler().runTaskLater(this, () -> { //some delay is needed in 'natural' mode...
+			message(player, PluginMsg.NOT_ENOUGH_SLOTS, natural);
+		},1);
+		getServer().getScheduler().runTaskLater(this, () -> {
+			message(player, PluginMsg.SUCCESS, natural);
+		},(drop&&natural)?60:1);
+	}
 
 	public void message(CommandSender sender, PluginMsg pm, boolean actionBar) {
 		if (actionBar && sender instanceof Player) {
@@ -172,53 +241,36 @@ public class EnchantSplit extends JavaPlugin implements Listener {
 		return removals;
 	}
 
-	private int getTotalExp(Player player) {
-		double a = 1, b = 6, c = 0;
-		int d = 2, e = 7;
+	//Jeppa: new XP calculation...: 
+	private double getTotalExp(Player player) {
 		int level = player.getLevel();
 
-		if (level >= 32) {
-			a = 4.5;
-			b = -162.5;
-			c = 2220;
-			d = 5;
-			e = -38;
-		} else if (level >= 17) {
-			a = 2.5;
-			b = -40.5;
-			c = 360;
-			d = 9;
-			e = -158;
-		}
-
-		int xpNeeded = d * level + e;
-
-		return (int) (Math.round(a * Math.pow(level, 2) + b * level + c) + player.getExp() * xpNeeded);
+		double playerLevelXP = getXPforLevel(level);
+		double xpForNextLevel = getXPforLevel(level+1)-playerLevelXP;
+		return playerLevelXP + Math.round((player.getExp() * xpForNextLevel));
 	}
+	//Jeppa: sub for getting base XP value for level... 
+	private double getXPforLevel(int level) {
+		int d = 2;
+		double diffVal=level*7;
 
-	private void setTotalExp(Player player, int amount) {
-		double a = 1, b = 6, c = -amount;
-		int d = 2, e = 7;
-
-		if (amount >= 1507) {
-			a = 4.5;
-			b = -162.5;
-			c = 2220 - amount;
-			d = 5;
-			e = -38;
-		} else if (amount >= 351) {
-			a = 2.5;
-			b = -40.5;
-			c = 360 - amount;
+		if (level >= 32) {
 			d = 9;
-			e = -158;
+			diffVal -= level*165 -2220;
+		} else if (level >= 17) {
+			d = 5;
+			diffVal -= level*45 -360;
 		}
-
-		int level = (int) Math.floor((-b + Math.sqrt(Math.pow(b, 2) - (4 * a * c))) / (2 * a));
-		int xpForLevel = (int) (a * Math.pow(level, 2) + (b * level) + (c + amount));
-		int xpNeeded = d * level + e;
-
-		player.setLevel(level);
-		player.setExp(Math.round((amount - xpForLevel) / (float) xpNeeded));
+		return ((Math.pow(level, 2)-level) *d) /2 + diffVal;
+	}
+	//Jeppa: sub for counting slots...
+	private final int freeSlots(Player player) {
+		int freeSlot = 0;
+		for (ItemStack is : player.getInventory().getStorageContents()){
+			if ( is == null || is.getType() == Material.AIR) {
+				freeSlot++;
+			}
+		}
+		return freeSlot;
 	}
 }

@@ -1,9 +1,13 @@
-Message:
-  NoPermission: "&cYou do not have permission to use /enchantsplit!"
-  PlayerOnly: "&cOnly players can use /enchantsplit!"
-  NotEnoughEnchants: "&cThe enchanted book does not have enough enchants to split!"
-  NotEnchantedBook: "&cOnly an enchanted book can be split!"
-  NotEnoughBooks: "&cYou do not have enough books in your inventory to split the enchanted book!"
-  NotEnoughXP: "&cYou do not have enough xp to split the enchanted book!"
-  Success: "&aEnchanted book was successfully split!"
-ExperienceCost: 5
+﻿Message:
+  NoPermission: '&cYou do not have permission to use that command!'
+  PlayerOnly: '&cOnly players can use /enchantsplit!'
+  NotEnoughEnchants: '&cThe enchanted book does not have enough enchants to split!!'
+  NotEnchantedBook: '&cOnly an enchanted book can be split!'
+  NotEnoughBooks: '&cYou do not have enough books in inventory to split the enchanted book!'
+  NotEnoughXP: '&cYou do not have enough xp levels to split the enchanted book!'
+  NotEnoughFreeSlots: '&cYour inventory is full. Some books got dropped!'
+  Success: '&aEnchanted book was successfully split!'
+  TooMuchBooks: '&cPlease split only one book at a time!'
+ExperienceCost: 3 # multiplicator (this * enchants = XP-cost)
+ExtraCost: 5 #      additional cost added to XP-cost...
+NeedsSneaking: true
