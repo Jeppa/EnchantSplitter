@@ -40,7 +40,7 @@ public class EnchantSplit extends JavaPlugin implements Listener {
 	
 	private boolean drop = false;	//Jeppa: defines internaly if books should be dropped or given...
 	
-	private FileConfiguration config = getConfig();
+//	private FileConfiguration config = getConfig();
 	
 	public enum PluginMsg {
 		NO_PERM("NoPermission", "&cYou don't have permission to use /enchantsplit!"),
@@ -72,6 +72,7 @@ public class EnchantSplit extends JavaPlugin implements Listener {
 	@Override
 	public void onEnable() {
 		//Jeppa: copy default values and save them...
+		FileConfiguration config = getConfig();
 		config.options().copyDefaults(true);
 		this.saveDefaultConfig();
 		this.saveConfig();
